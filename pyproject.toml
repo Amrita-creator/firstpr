@@ -1,24 +1,6 @@
 # -----------------------------------------------------------------------------
 # Purpose
-#   Define the Python project metadata and its future development dependencies.
-# Why this file exists
-#   Python tooling needs one predictable place to learn the project name, Python
-#   version, dependencies, test configuration, and eventual CLI command.
-# Responsibility
-#   Keep project-wide configuration only. It must not contain application logic,
-#   secrets, prompts, or MCP server settings.
-# Implement later
-#   Add the minimum dependencies when each is needed: Pydantic for models,
-#   httpx for GitHub HTTP calls, the MCP SDK, Agno, and python-dotenv.
-#   Later add a `compass` command that calls `compass.cli:main`.
-# Interacts with
-#   Every Python file indirectly through your virtual environment and test tools.
-# Inputs and outputs
-#   Inputs are package/version choices; outputs are an installable environment and
-#   repeatable development commands.
-# Concepts to practice
-#   Python packaging, virtual environments, dependency management, and CLI entry
-#   points. Keep dependencies empty until you can explain why each one is needed.
+#   Define the Python project metadata and development dependencies.
 # -----------------------------------------------------------------------------
 
 [build-system]
@@ -32,12 +14,27 @@ description = "A beginner-focused open-source contribution guide."
 requires-python = ">=3.11"
 dependencies = [
     "python-dotenv>=1.0.0",
-    "httpx",
-    "agno",
-    "groq",
-    "pydantic",
+    "httpx>=0.27.0",
+    "pydantic>=2.0",
+    "google-antigravity>=0.1.0",
+    "openai>=1.40.0",
 ]
+
+[project.scripts]
+firstpr = "main:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+py-modules = ["main", "config", "models", "utils"]
 
 [tool.setuptools.packages.find]
 where = ["."]
+include = ["agent*", "github*", "recommender*"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

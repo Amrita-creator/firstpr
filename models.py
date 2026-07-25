@@ -1,5 +1,7 @@
-from pydantic import BaseModel, Field, field_validator, ValidationError
-from typing import Optional, List, Dict, Any
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
 
 class LearnerProfile(BaseModel):
     github_username: Optional[str] = None
@@ -38,12 +40,21 @@ class OpportunityScore(BaseModel):
     score_reasons: List[str] = []
 
 
+class MentorBriefDraft(BaseModel):
+    """LLM-only fields assembled into ContributionBrief in application code."""
+
+    # @lat: [[lat.md/lat#Domain Models]]
+    why_this_is_a_match: List[str] = Field(min_length=1)
+    suggested_first_steps: List[str] = Field(min_length=1)
+
+
 class ContributionBrief(BaseModel):
     learner_username: Optional[str] = None
     top_recommendation: RepositoryCandidate
     alternative_options: List[RepositoryCandidate] = []
     why_this_is_a_match: List[str]
     suggested_first_steps: List[str]
+
 
 class SearchStrategy(BaseModel):
     primary_language: str

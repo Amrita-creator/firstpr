@@ -1,29 +1,81 @@
-"""
-Purpose
-    Centralize application configuration that comes from the environment.
-Why this file exists
-    Tokens and provider choices should have one documented source rather than
-    being duplicated or hard-coded throughout the project.
-Responsibility
-    Load and validate only configuration needed by Version 1, such as a GitHub
-    token and the model-provider key you select. Do not make API calls here.
-Implement
-    Later create a small settings model or function that reads environment
-    variables once and fails with a clear message when a required value is absent.
-    Keep configuration minimal; do not add a settings framework unless needed.
-Interacts with
-    `github/github_client.py` needs GitHub credentials. `agent/mentor.py` needs
-    model-provider configuration. `main.py` may create settings and pass them on.
-Inputs
-    Environment variables documented in `.env.example`.
-Outputs
-    Validated configuration values, never printed tokens or secrets.
-Concepts to practice
-    Environment variables, configuration boundaries, `.env` files, validation,
-    and safe error messages.
-Common beginner mistakes
-    Hard-coding tokens, reading environment variables in every file, logging
-    secrets, or adding configuration for features that do not exist yet.
-"""
-GITHUB_TOKEN = "GITHUB_TOKEN"
-GITHUB_API_URL = "GITHUB_API_URL"
+"""Load and validate environment-backed settings for Contribution Compass."""
+
+from __future__ import annotations
+
+import os
+from functools import lru_cache
+from typing import Literal
+
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field, model_validator
+
+load_dotenv()
+
+ModelProvider = Literal["gemini", "openai-oauth"]
+
+
+class Settings(BaseModel):
+    """Validated runtime configuration. Secrets are never printed."""
+
+    github_token: str | None = None
+    github_api_url: str = "https://api.github.com"
+    model_provider: ModelProvider = "gemini"
+    gemini_api_key: str | None = None
+    gemini_model: str | None = None
+    openai_base_url: str = "http://127.0.0.1:10531/v1"
+    openai_model: str = "gpt-5.6-terra"
+    openai_api_key: str = "sk-local"
+    search_result_limit: int = Field(default=20, ge=1, le=50)
+
+    @model_validator(mode="after")
+    def _require_provider_credentials(self) -> Settings:
+        if self.model_provider == "gemini" and not self.gemini_api_key:
+            raise ValueError(
+                "MODEL_PROVIDER=gemini requires GEMINI_API_KEY "
+                "(or GOOGLE_API_KEY)."
+            )
+        if self.model_provider == "openai-oauth" and not self.openai_base_url:
+            raise ValueError(
+                "MODEL_PROVIDER=openai-oauth requires OPENAI_BASE_URL "
+                "(default http://127.0.0.1:10531/v1 from bunx openai-oauth)."
+            )
+        return self
+
+
+def _resolve_provider(raw: str | None, *, has_gemini_key: bool) -> ModelProvider:
+    value = (raw or "").strip().lower().replace("_", "-")
+    if value in {"openai-oauth", "openai", "oauth", "chatgpt"}:
+        return "openai-oauth"
+    if value in {"gemini", "antigravity", "google"}:
+        return "gemini"
+    if value == "":
+        # Prefer Gemini when a key exists; otherwise use the local oauth proxy.
+        return "gemini" if has_gemini_key else "openai-oauth"
+    raise ValueError(
+        f"Unsupported MODEL_PROVIDER={raw!r}. Use 'gemini' or 'openai-oauth'."
+    )
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    """Read environment variables once and return validated settings."""
+    # @lat: [[lat.md/lat#Configuration]]
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    provider = _resolve_provider(
+        os.getenv("MODEL_PROVIDER"),
+        has_gemini_key=bool(gemini_key),
+    )
+    return Settings(
+        github_token=os.getenv("GITHUB_TOKEN") or None,
+        github_api_url=os.getenv("GITHUB_API_URL", "https://api.github.com"),
+        model_provider=provider,
+        gemini_api_key=gemini_key or None,
+        gemini_model=os.getenv("GEMINI_MODEL") or None,
+        openai_base_url=(
+            os.getenv("OPENAI_BASE_URL", "http://127.0.0.1:10531/v1")
+            .rstrip("/")
+        ),
+        openai_model=os.getenv("OPENAI_MODEL", "gpt-5.6-terra"),
+        openai_api_key=os.getenv("OPENAI_API_KEY", "sk-local"),
+        search_result_limit=int(os.getenv("SEARCH_RESULT_LIMIT", "20")),
+    )

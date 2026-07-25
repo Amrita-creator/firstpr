@@ -10,8 +10,6 @@ env/
 ENV/
 
 # Environment variables & secrets
-.env
-.env.*
 !.env.example
 
 # Distribution / packaging
@@ -29,7 +27,6 @@ htmlcov/
 .ruff_cache/
 
 # IDEs and Editors
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -38,3 +35,10 @@ htmlcov/
 # System files
 .DS_Store
 Thumbs.db
+.cursor
+.codex
+
+# lat.md embedding / init cache
+lat.md/.cache/
+config.bat
+node_modules
